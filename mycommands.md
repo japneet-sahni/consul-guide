@@ -11,7 +11,7 @@ consul-client-01  10.128.0.7:8301  alive   client  1.10.1  2         dc1  <defau
 ```
 
 ## 2. Remote Execution 
-(disabled by default post v0.8, needs to be enabled first for each server/client)
+#### (disabled by default post v0.8, needs to be enabled first for each server/client)
 #### consul agent -dev --client 0.0.0.0 -bind=10.128.0.5 -hcl='disable_remote_exec=false'
 #### consul exec ping google.com
 ```sh
@@ -96,7 +96,7 @@ WantedBy=multi-user.target
 # Service Discovery
 ## 1. Implementation
 
-### By default, consul DNS runs on 8600 port and consul service runs on consul server
+#### By default, consul DNS runs on 8600 port and consul service runs on consul server
 ```sh
 [root@consul-server-01 ~]# dig @localhost -p 8600 consul.service.consul SRV
 
@@ -126,8 +126,8 @@ consul-server.node.dc1.consul. 0 IN     TXT     "consul-network-segment="
 ;; MSG SIZE  rcvd: 151
 ```
 
-#### 1.1 Registering a service
-Create a service definition file and place it at /etc/consul.d
+### 1.1 Registering a service
+#### Create a service definition file and place it at /etc/consul.d
 ```sh
 {
   "service": {
@@ -142,4 +142,70 @@ consul validate /etc/consul.d
 consul reload
 ```
 
-#### 1.2 Finding a service
+### 1.2 Finding a service
+#### After this step only node health check would pass, no the service health check.
+```sh
+[root@consul-server-01 consul.d]# dig @localhost -p 8600 web.service.consul SRV
+
+; DiG 9.11.26-RedHat-9.11.26-4.el8_4 <<>> @localhost -p 8600 web.service.consul SRV
+; (2 servers found)
+;; global options: +cmd
+;; Got answer:
+;; HEADER opcode: QUERY, status: NOERROR, id: 32077
+;; flags: qr aa rd; QUERY: 1, ANSWER: 2, AUTHORITY: 0, ADDITIONAL: 5
+;; WARNING: recursion requested but not available
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 4096
+;; QUESTION SECTION:
+;web.service.consul.            IN      SRV
+
+;; ANSWER SECTION:
+web.service.consul.     0       IN      SRV     1 1 80 consul-client-01.node.dc1.consul.
+web.service.consul.     0       IN      SRV     1 1 80 consul-server.node.dc1.consul.
+
+;; ADDITIONAL SECTION:
+consul-client-01.node.dc1.consul. 0 IN  A       10.128.0.7
+consul-client-01.node.dc1.consul. 0 IN  TXT     "consul-network-segment="
+consul-server.node.dc1.consul. 0 IN     A       10.128.0.5
+consul-server.node.dc1.consul. 0 IN     TXT     "consul-network-segment="
+```
+
+### 1.2 Monitoring a service
+#### After this step the service health check should also come into picture based on the health check output (below is a script check using curl)
+```sh
+{
+  "service": {
+    "name": "web",
+    "port": 80,
+    "check": {
+        "args": [ "curl", "127.0.0.1"],
+        "interval": "10s"
+    }
+  }
+}
+```
+#### You will get below error, hence need to add enable_local_script_checks = true to consul.hcl and restart the service
+```sh
+consul reload
+Error reloading: Unexpected response code: 500 (Failed reloading services: Failed to register service "web": Scripts are disabled on this agent; to enable, configure 'enable_script_checks' or 'enable_local_script_checks' to true)
+```
+#### The service health will now start failing because no service is running on port 80. Install nginx and you should see service will start passing
+```sh
+yum -y install nginx
+systemctl start nginx
+systemctl enable nginx
+```
+
+## 2. Types of health check
+### a) Script : Exit code. Status of check (0-passing, 1-warning, others-faling)
+### b) HTTP : Status code of HTTP check, 2xx is passing
+### c) TCP : Status of port check.
+
+# Dynamic Configuration
+## 1. Key-Value Store
+```sh
+consul kv put max_memory 512M
+consul kv get max_memory
+consul kv delete max_memory
+```
