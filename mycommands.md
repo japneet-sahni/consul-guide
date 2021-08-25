@@ -204,8 +204,210 @@ systemctl enable nginx
 
 # Dynamic Configuration
 ## 1. Key-Value Store
+### Object size can't be > 512KB
 ```sh
 consul kv put max_memory 512M
 consul kv get max_memory
 consul kv delete max_memory
+```
+
+## 2. Watches
+### Checks for changes made to diff consul types like key, keyprefixes, services, nodes, checks, events. If change is deteched an external handler is invoked.
+
+```sh
+consul watch -type=key -key=max_memory ./script.sh
+
+### Stop nginx and you will notice one failed check
+consul watch -type=checks -state critical
+```
+
+## 3. Consul templates
+### Not a feature of consul but a different binary altogether. Reads the template file and stores the value in output.txt
+```sh
+### key.tpl
+{{ key "max_memory" }}
+
+### Runs continously
+consul-template -template "key.tpl:output.txt"
+### Runs once
+consul-template -template "key.tpl:output.txt" -once
+
+### Configuration File:
+consul {
+ address = "127.0.0.1:8500"
+}
+template {
+ source = "/root/template/course.tpl"
+ destination = "/root/template/course-newname.txt"
+ command = "echo Modified > /root/template/delta.txt"
+}
+```
+
+## 4. envconsul
+### Launch a subprocess with envt. variables populated from consul & vault. envconsul will connect to consul/vault, read data from KV with prefix specified and populates the envt. variables with the same key names.
+
+```sh
+envconsul -prefix my-app env
+```
+
+# Security
+## 1. Consul Connect
+- Service mesh feature of consul
+- Provides service-2-service connection using MTLS & authoriation
+- Sidecar proxiesare deployed along with each service.
+- Use *Intentions* to allow/deny requests coming from a specific server
+
+### Pre:Requisite: Selinux to Permissive:
+```sh
+setenforce 0
+nano /etc/selinux/config
+systemctl stop consul
+```
+### Step 1: Configure Nginx
+```sh
+yum -y install nginx
+```
+```sh
+cd /etc/nginx/conf.d/
+nano services.conf
+```
+```sh
+server {
+    server_name _;
+    listen 8080;
+    location / {
+         proxy_pass http://127.0.0.1:5000;
+}
+  }
+
+server {
+    server_name _;
+    listen 9080;
+    root /usr/share/nginx/html/backend-service;
+}
+```
+```sh
+cd /usr/share/nginx/html
+mkdir backend-service
+cd backend-service
+echo "Backend Service" > index.html
+nginx -t
+systemctl start nginx
+```
+
+```sh
+### Curl output till now. Backend works but frontend fails as proxy is not setup.
+[root@consul-server-01 backend-service]# curl http://localhost:9080
+Backend Service
+[root@consul-server-01 backend-service]# curl http://localhost:8080
+<html>
+<head><title>502 Bad Gateway</title></head>
+<body bgcolor="white">
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.14.1</center>
+</body>
+</html>
+```
+### Step 2: Create Service Definition:
+
+Definition for Backend Service:
+```sh
+cd /tmp
+```
+```sh
+nano backend-service.hcl
+```
+```sh
+service {
+  name = "backend-service"
+  id = "backend-service"
+  port = 9080
+
+  connect {
+    sidecar_service {}
+  }
+
+  check {
+    id       = "backend-service-check"
+    http     = "http://localhost:9080"
+    method   = "GET"
+    interval = "1s"
+    timeout  = "1s"
+  }
+}
+```
+```sh
+consul services register backend-service.hcl
+```
+```sh
+nano frontend-service.hcl
+```
+```sh
+service {
+  name = "frontend-service"
+  port = 8080
+
+  connect {
+    sidecar_service {
+      proxy {
+        upstreams = [
+          {
+            destination_name = "backend-service"
+            local_bind_port  = 5000
+          }
+        ]
+      }
+    }
+  }
+
+  check {
+    id       = "backend-service-check"
+    http     = "http://localhost:8080"
+    method   = "GET"
+    interval = "1s"
+    timeout  = "1s"
+  }
+}
+```
+```sh
+consul agent -dev --client=0.0.0.0
+```
+```sh
+consul services register frontend-service.hcl
+consul services register backend-service.hcl
+### Services will registered but will still be failing unless proxies are not run.
+```
+
+### Step 3: Start Sidecar Proxy:
+```sh
+consul connect proxy -sidecar-for frontend-service > /tmp/frontend-service.log &
+consul connect proxy -sidecar-for backend-service > /tmp/backend-service.log &
+netstat -ntlp
+```
+### Step 4: Verification:
+```sh
+curl localhost:8080
+
+[root@consul-server-01 consul.d]# netstat -ntlp
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 127.0.0.1:5000          0.0.0.0:*               LISTEN      2355/consul         
+tcp        0      0 10.128.0.5:8300         0.0.0.0:*               LISTEN      2163/consul         
+tcp        0      0 10.128.0.5:8301         0.0.0.0:*               LISTEN      2163/consul         
+tcp        0      0 10.128.0.5:8302         0.0.0.0:*               LISTEN      2163/consul         
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      2314/nginx: master  
+tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      2314/nginx: master  
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1288/sshd           
+tcp        0      0 0.0.0.0:9080            0.0.0.0:*               LISTEN      2314/nginx: master  
+tcp6       0      0 :::21000                :::*                    LISTEN      2365/consul         
+tcp6       0      0 :::21001                :::*                    LISTEN      2355/consul         
+tcp6       0      0 :::80                   :::*                    LISTEN      2314/nginx: master  
+tcp6       0      0 :::8500                 :::*                    LISTEN      2163/consul         
+tcp6       0      0 :::8502                 :::*                    LISTEN      2163/consul         
+tcp6       0      0 :::22                   :::*                    LISTEN      1288/sshd           
+tcp6       0      0 :::8600                 :::*                    LISTEN      2163/consul         
+[root@consul-server-01 consul.d]# 
+[root@consul-server-01 consul.d]# curl localhost:8080
+Backend Service
+
 ```
