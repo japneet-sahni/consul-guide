@@ -1,3 +1,5 @@
+[1. Getting Started with Consul] (1. Getting Started with Consul)
+
 # 1. Getting Started with Consul
 ## 1.1. Starting Consul in Dev Mode
 #### consul agent -dev --client 0.0.0.0 -bind=10.128.0.5 (bind ip is eth0 interface in ifconfig)
