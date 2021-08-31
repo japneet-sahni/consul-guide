@@ -1,4 +1,9 @@
-[1. Getting Started with Consul] (1. Getting Started with Consul)
+* [1. Getting Started with Consul ](https://github.com/japneet-sahni/consul#1-getting-started-with-consul)
+* [2. Service Discovery](https://github.com/japneet-sahni/consul#2-service-discovery)
+* [3. Dynamic Configuration](https://github.com/japneet-sahni/consul#3-dynamic-configuration)
+* [4. Security](https://github.com/japneet-sahni/consul#3-dynamic-configuration)
+* [5. Infrastructure & High Availability](https://github.com/japneet-sahni/consul#3-dynamic-configuration)
+* [6. Consul Enterprise](https://github.com/japneet-sahni/consul#3-dynamic-configuration)
 
 # 1. Getting Started with Consul
 ## 1.1. Starting Consul in Dev Mode
