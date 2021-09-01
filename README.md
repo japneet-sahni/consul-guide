@@ -7,11 +7,11 @@
 
 # 1. Getting Started with Consul
 ## 1.1. Starting Consul in Dev Mode
-#### consul agent -dev --client 0.0.0.0 -bind=10.128.0.5 (bind ip is eth0 interface in ifconfig)
-#### consul agent -join 10.128.0.5 -bind 10.128.0.7 --data-dir /opt/consul
-
-#### consul members
 ```sh
+# consul agent -dev --client 0.0.0.0 -bind=10.128.0.5 (bind ip is eth0 interface in ifconfig) - {{ GetInterfaceIP "eth0" }}
+# consul agent -join 10.128.0.5 -bind 10.128.0.7 --data-dir /opt/consul
+
+# consul members
 Node              Address          Status  Type    Build   Protocol  DC   Segment
 consul-server-01  10.128.0.5:8301  alive   server  1.10.1  2         dc1  <all>
 consul-client-01  10.128.0.7:8301  alive   client  1.10.1  2         dc1  <default>
@@ -146,7 +146,9 @@ consul-server.node.dc1.consul. 0 IN     TXT     "consul-network-segment="
 ```sh
 chown consul.consul web.json
 consul validate /etc/consul.d
-consul reload
+consul reload 
+# or
+consul services register web.json
 ```
 
 ### 2.1.2 Finding a service
@@ -180,6 +182,9 @@ consul-server.node.dc1.consul. 0 IN     TXT     "consul-network-segment="
 
 ### 2.1.2 Monitoring a service
 #### After this step the service health check should also come into picture based on the health check output (below is a script check using curl)
+- Script Check : The output of a script check is limited to 4KB. (0-passing, 1-warning, other-failing)
+- HTTP : The status of the service depends on the HTTP response code: any 2xx code is considered passing, a 429 Too ManyRequests is a warning, and anything else is a failure. 
+- TCP : If the connection is accepted, the status is success, otherwise the status is critical
 ```sh
 {
   "service": {
@@ -187,6 +192,8 @@ consul-server.node.dc1.consul. 0 IN     TXT     "consul-network-segment="
     "port": 80,
     "check": {
         "args": [ "curl", "127.0.0.1"],
+#       "http": "https://localhost:5000/health",
+#       "tcp": "localhost:22",
         "interval": "10s"
     }
   }
@@ -203,11 +210,6 @@ yum -y install nginx
 systemctl start nginx
 systemctl enable nginx
 ```
-
-## 2.2. Types of health check
-### a) Script : Exit code. Status of check (0-passing, 1-warning, others-faling)
-### b) HTTP : Status code of HTTP check, 2xx is passing
-### c) TCP : Status of port check.
 
 # 3. Dynamic Configuration
 ## 3.1. Key-Value Store
@@ -430,6 +432,8 @@ Action:       deny
 ID:           fe489aee-b2a6-7ba1-030f-0ec909f9a591
 Created At:   Wednesday, 25-Aug-21 13:51:53 UTC
 # consul intention match backend-service
+frontend-service => backend-service (deny)
+# consul intention match -source frontend-service
 frontend-service => backend-service (deny)
 # consul intention delete frontend-service backend-service
 Intention deleted.
