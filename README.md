@@ -45,7 +45,7 @@ bind_addr = "10.128.0.7"
 2021-08-23T00:22:14.763Z [INFO]  agent.client.serf.lan: serf: EventMemberLeave: consul-client-01 10.128.0.7
 ```
 
-#### Forced Removal : Agent is not removed and DC will detect failure and replication will continously retry (ctrl +c or killall -s 9 consul)
+#### Forced Removal : Agent is not removed and DC will detect failure and replication will continously retry (killall -s 9 consul)
 
 ```sh
 2021-08-23T00:27:40.825Z [DEBUG] agent.server.memberlist.lan: memberlist: Initiating push/pull sync with: consul-client-01 10.128.0.7:8301
