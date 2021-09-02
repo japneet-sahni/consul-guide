@@ -242,6 +242,8 @@ consul-template -template "key.tpl:output.txt"
 consul-template -template "key.tpl:output.txt" -once
 
 ### Configuration File:
+vi /tmp/consul-template-config.hcl
+
 consul {
  address = "127.0.0.1:8500"
 }
@@ -250,6 +252,8 @@ template {
  destination = "/root/template/course-newname.txt"
  command = "echo Modified > /root/template/delta.txt"
 }
+
+consul-template -config "/tmp/consul-template-config.hcl"
 ```
 
 ## 3.4. envconsul
@@ -466,19 +470,33 @@ Create Time:      2021-08-25 19:02:31.46557543 +0000 UTC
 Policies:
    00000000-0000-0000-0000-000000000001 - global-management
 
+# consul members -token=88f95e1a-70fe-4876-de5e-a88d0d5a17d7
 # export CONSUL_HTTP_TOKEN=88f95e1a-70fe-4876-de5e-a88d0d5a17d7
+# export CONSUL_HTTP_TOKEN_FILE=/tmp/token-file
+
+vi /tmp/token-file
+88f95e1a-70fe-4876-de5e-a88d0d5a17d7
 ```
 ### Wildcard based access Policy
 ```sh
 key_prefix "" {
   policy = "read"
 }
+
+# consul acl policy create -name "new-policy" -rules @rules.hcl
+# consul acl policy create -name "new-policy" -token-secret 8a2abe46-8e00-14ca-1795-89d3f8966837 (secret ID)
 ```
 
 ## 4.4 Anonymous Tokens
 - Cannot be deleted
 - Access things without logging in.
 - Required for DNS service discovery (dig on 8600 won't return any A record)
+
+```sh
+AccessorID:       00000000-0000-0000-0000-000000000002
+SecretID:         anonymous
+Description:      Anonymous Token
+```
 ```sh
 service_prefix "" {
   policy = "read"
@@ -779,6 +797,10 @@ curl localhost:8500/v1/catalog/nodes?pretty
 curl localhost:8500/v1/kv/max_memory?pretty
 curl --request DELETE localhost:8500/v1/kv/max_memory
 curl --header "X-Consul-Token: 88f95e1a-70fe-4876-de5e-a88d0d5a17d7" localhost:8500/v1/kv/max_memory
+# raw gives decoded value
+curl localhost:8500/v1/kv/max_memory?raw
+# to get all keys without values
+curl localhost:8500/v1/kv/?keys
 ```
 ## 4.11 Final consul.hcl files
 ```sh
