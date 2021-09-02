@@ -372,7 +372,7 @@ service {
   }
 
   check {
-    id       = "backend-service-check"
+    id       = "frontend-service-check"
     http     = "http://localhost:8080"
     method   = "GET"
     interval = "1s"
