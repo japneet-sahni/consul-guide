@@ -4,6 +4,7 @@
 * [4. Security](https://github.com/japneet-sahni/consul#4-security)
 * [5. Infrastructure & High Availability](https://github.com/japneet-sahni/consul#5-infrastructure--high-availability)
 * [6. Consul Enterprise](https://github.com/japneet-sahni/consul#6-consul-enterprise)
+* [7. Important Pointers](https://github.com/japneet-sahni/consul#7-important-pointers)
 
 # 1. Getting Started with Consul
 ## 1.1. Starting Consul in Dev Mode
@@ -797,6 +798,8 @@ curl localhost:8500/v1/catalog/nodes?pretty
 curl localhost:8500/v1/kv/max_memory?pretty
 curl --request DELETE localhost:8500/v1/kv/max_memory
 curl --header "X-Consul-Token: 88f95e1a-70fe-4876-de5e-a88d0d5a17d7" localhost:8500/v1/kv/max_memory
+curl --header "Authorization: Bearer 88f95e1a-70fe-4876-de5e-a88d0d5a17d7" localhost:8500/v1/kv/max_memory
+ 
 # raw gives decoded value
 curl localhost:8500/v1/kv/max_memory?raw
 # to get all keys without values
@@ -959,6 +962,7 @@ vi /etc/consul.d/failover.json
 ## 5.4. Backup & restore
 - Snapshots will not be saved if DC is degraded or if no leader is available
 - It is possible to run snapshot on any follower server using stale consistency mode.
+- Includes key/value entries, service catalog, prepared queries, sessions, and ACLs
 ```sh
 consul snapshot save backup.snap
 consul snapshot restore backup.snap
@@ -1063,3 +1067,57 @@ autopilot {
 
 ## 6.5 Automated upgrades
 - Autopilot allows you to add new servers directly to the datacenter and waits until you have enough servers running the new version to perform a leadership change and demote the old servers as "non-voters".
+
+# 7. Important Pointers
+1) There are several ways to register services in Consul:
+- directly from a Consul-aware application
+- from an orchestrator, like Nomad or Kubernetes
+- using configuration files that are loaded at node startup
+- using the API to register them with a JSON or HCL specification
+- using the CLI to simplify this submission process
+  You cannot register a service from UI
+
+2) The CA provider abstraction enables Consul to support multiple systems for storing and signing certificates. 
+- Built-in Consul CA.
+- Vault as a CA.
+- As of Consul 1.7, AWS ACM Private CA is supported.
+
+3) While the bootstrap token should be protected at all costs, it can actually be reset if the bootstrap token is lost or misplaced. This is done by resetting the ACL system by updating the index.
+```sh
+consul acl bootstrap
+echo 13 (index from previous failed command) >> <data-directory>/acl-bootstrap-reset
+```
+
+4) Despite the name, Consul Template, nor Envconsul, does not require a Consul cluster to operate. Consul Template can retrieve secrets from Vault and manage the acquisition and renewal lifecycle. Envconsul can launch a subprocess that dynamically populates environment variables from secrets read from Vault.
+
+5) Enterprise exclusive features
+- Audit Logging
+- Automated Backups (consul snapshot agent)
+- Automated Upgrades
+- Enhanced Read Scalability
+- Redundancy Zones
+- Advanced Federation for Complex Network Topologies
+- Network Segments
+- Namespaces
+- Sentinel
+- OIDC Auth Method
+
+6) ACL Auth methods
+- Kubernetes
+- JWT
+- OIDC (Enterprise Only)
+
+7) Ensuring Security/Threat Model
+- ACL's should be enabled with default deny policy
+- verify_outgoing should be enabled.
+- verify_server_hostname should be true so that any compromised clients don't restarts as a server
+- Ensuring that all clusters join the cluster with proper authentication and authorization
+
+8) A new Consul agent may join any node in the existing cluster. After joining with one member, the gossip communication will propagate the updated membership state across the cluster.
+
+9) Consul's gossip protocol is protected by a symmetric key, or a shared secret
+
+10) Consul uses a gossip protocol to manage membership and broadcast messages to the cluster. All of this is provided through the use of the Serf library.
+
+11) Consul agent communications are done using TLS certificates that can be created by the built-in CA or an external CA if you need more control over certificates. Consul Connect uses mutual TLS for authorization and encryption.
+
