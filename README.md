@@ -911,7 +911,7 @@ datacenter: Japan
 "tags": "[v1]"
 
 "name": "web"
-"id": "web1"
+"id": "web2"
 "tags": "[v2]"
 
 # Create prepared query json
@@ -1140,7 +1140,7 @@ echo 13 (index from previous failed command) >> <data-directory>/acl-bootstrap-r
 
 16) It's possible to read a prepared query using Consul's API other than DNS queries.
 
-17) is responsible for Consul functions such as leadership elections, maintaining committed log entries, and establishing a quorum
+17) RAFT is responsible for Consul functions such as leadership elections, maintaining committed log entries, and establishing a quorum
 
 18) Services must have unique IDs per node
 
